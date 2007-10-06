@@ -1,0 +1,29 @@
+autotools
+Makefile.in
+Makefile
+INSTALL
+.deps
+aclocal.m4
+autom4te.cache
+configure
+configure.cache
+config.log
+config.status
+config.h.in
+config.h
+stamp-h1
+*.tar
+*.tar.gz
+*.tar.bz2
+*.zip
+*.o
+*.a
+*~
+# Autopackage
+*.xml
+*.xml.old
+*.package
+*.package.meta
+# my build dirs:
+cross
+native

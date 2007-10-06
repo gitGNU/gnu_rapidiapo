@@ -1,0 +1,14 @@
+CFLAGS=-Wall -std=c99 -pedantic -finline -O0 -g $(shell sdl-config --cflags)  -pg
+LDFLAGS=-lSDL_image -lSDL_gfx $(shell sdl-config --libs)  -pg
+# mingw:
+LDLIBS=$(LDFLAGS)
+all: diaporama test
+clean:
+	rm -f diaporama *.o *~
+
+# cross:
+#i586-mingw32msvc-gcc -finline -std=c99 diaporama.c -lSDL_gfx -lSDL_image `/usr/local/cross-tools/i386-mingw32/bin/sdl-config --cflags --libs`
+# cross-static:
+#i586-mingw32msvc-gcc -finline -static -std=c99 diaporama.c -lSDL_gfx -lSDL_image `/usr/local/cross-tools/i386-mingw32/bin/sdl-config --cflags --libs` -lwinmm -ljpeg
+# cross-static with DX-enabled SDL:
+#i586-mingw32msvc-gcc -finline -static -std=c99 diaporama.c -lSDL_gfx -lSDL_image `/usr/local/cross-tools/i386-mingw32/bin/sdl-config --cflags --libs` -lwinmm -ljpeg -ldxguid

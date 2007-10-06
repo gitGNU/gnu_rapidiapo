@@ -1,0 +1,7 @@
+woeres.rc
+*.exe
+*~
+rapidiapo
+# NCC
+*.nccout
+.tmp.c
