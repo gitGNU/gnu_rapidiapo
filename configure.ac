@@ -80,7 +80,7 @@ if test x"$static" = x"1"; then
 	  -lSDL_image -ljpeg -lpng -ltiff -lz \
 	  -lSDL \
 	  -lvga -ldirectfb -ldirect -lfusion \
-          -lcaca -lcucul -lslang -laa -lcurses \
+          -lcaca -lcucul -laa -lslang -lcurses \
           -laudio -lesd -lartsc -lasound -lgpm \
           -lm \
 	  -Wl,-Bdynamic -lX11 -ldl -lpthread -lstdc++"

@@ -1,5 +1,5 @@
 AM_CFLAGS = -Wall -std=c99 -pedantic \
-  -finline
+  -g -pg -finline
 
 # Gnulib:
 # includes generated files from top_builddir (not only top_srcdir)
