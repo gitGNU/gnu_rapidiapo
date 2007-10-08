@@ -1,5 +1,5 @@
-AM_CFLAGS = -Wall -std=c99 -pedantic \
-  -g -pg -finline
+AM_CFLAGS = -Wall -std=c99 -pedantic -finline
+#-g -pg
 
 # Gnulib:
 # includes generated files from top_builddir (not only top_srcdir)
@@ -19,3 +19,6 @@ WOERES=
 endif
 
 bin_PROGRAMS = rapidiapo
+rapidiapo_SOURCES = rapidiapo.c $(WOERES)
+
+EXTRA_DIST = rapidiapo.ico

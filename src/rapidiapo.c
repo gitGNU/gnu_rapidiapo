@@ -20,9 +20,15 @@
  * <http://www.gnu.org/licenses/>.
  */
 
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <dirent.h>
 #include <string.h>
+#include <getopt.h>
 
 #if defined _WIN32 || defined __WIN32__ || defined __CYGWIN__
 # define WIN32_LEAN_AND_MEAN
@@ -74,6 +80,12 @@ static inline int myrand(int limit)
   Time(flipping): 10
   Total time: 745
 */
+enum transition
+  { RANDOM_DISSOLVE, ALPHA_BLEND,
+    SCROLL_PUSH_UPWARDS, SCROLL_PUSH_DOWNWARDS, SCROLL_LEFTWARDS, SCROLL_RIGHTWARDS,
+    INCREMENTAL_ZOOM
+  };
+
 
 static SDL_Surface *screen;
 static SDL_Surface *previous_screen, *next_screen;
@@ -89,6 +101,7 @@ static SDL_Surface *resized = NULL;
 char *dirname;
 char **filenames;
 int nb_images = 0;
+int transition = 0;
 /* } */
 
 /* TODO: the memcpy part is not portable, it assumes the values are in
@@ -140,7 +153,7 @@ Uint32 StopPauseCallback(Uint32 interval, void *param)
   event.user = userevent;
   
   SDL_PushEvent(&event);
-  return(interval);
+  return 0; /* Don't call me again */
 }
 
 int load_image(void *param_filename)
@@ -181,8 +194,66 @@ int main(int argc, char *argv[])
   int start;
   SDL_Thread* background_loading = NULL;
 
+#if defined _WIN32 || defined __WIN32__ || defined __CYGWIN__
+  char myself[MAX_PATH];
+  int k;
+
+  /* Current directory */
+  GetModuleFileName(NULL, myself, MAX_PATH);
+  for (k = strlen(myself); myself[k] != '\\'; k--)
+    ;
+  dirname = myself;
+  dirname[k] = '\0';
+#else /* Unix */
+  if (argc > 1)
+    dirname = argv[1];
+  else
+    dirname = ".";
+#endif
+
+  DIR *dir;
+  struct dirent *entry;
+
+  printf("Opening %s\n", dirname);
+  dir = opendir(dirname);
+  if (dir == NULL)
+    {
+      perror("Could not open directory %s");
+      exit(1);
+    }
+  filenames = malloc(1);
+  while((entry = readdir(dir)) != NULL)
+    {
+      char *name = entry->d_name;
+      int len = strlen(name);
+
+      /* Match trailing ".jpg" */
+      char *occurrence, *last_occurrence, *cur_string;
+      occurrence = cur_string = name;
+      last_occurrence = NULL;
+      while (printf("cur_string = %s\n", cur_string), (occurrence = (strcasestr(cur_string, ".jpg"))) != NULL)
+	{
+	  last_occurrence = occurrence;
+	  cur_string = occurrence + 1;
+	}
+      if ((last_occurrence != NULL) && ((last_occurrence - name) == (len - 4)))
+	{
+	  /* This is a .jpg !!! */
+	  printf("%s is a .jpg !!!\n", name);
+	  nb_images++;
+	  filenames = realloc(filenames, sizeof(char*) * nb_images);
+	  filenames[nb_images-1] = malloc(len + 1);
+	  strncpy(filenames[nb_images-1], name, len + 1);
+	}
+    }
+
+
+
+  /**
+   * Init
+   */
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
-  screen = SDL_SetVideoMode(0, 0, 0, SDL_HWSURFACE | SDL_ANYFORMAT); // | SDL_FULLSCREEN
+  screen = SDL_SetVideoMode(0, 0, 0, SDL_HWSURFACE | SDL_ANYFORMAT | SDL_FULLSCREEN);
   if (screen == NULL)
     {
       error(_("Could not start the graphics display: %s\n"), SDL_GetError());
@@ -211,65 +282,8 @@ int main(int argc, char *argv[])
   /*     SDL_Flip(screen); */
   /*   } */
 
-#if defined _WIN32 || defined __WIN32__ || defined __CYGWIN__
-  char myself[MAX_PATH];
-  int k;
 
-  /* Current directory */
-  GetModuleFileName(NULL, myself, MAX_PATH);
-  for (k = strlen(myself); myself[k] != '\\'; k--)
-    ;
-  dirname = myself;
-  dirname[k] = '\0';
-#else /* Unix */
-  if (argc > 1)
-    dirname = argv[1];
-  else
-    dirname = ".";
-#endif
 
-  DIR *dir;
-  struct dirent *entry;
-
-  printf("Opening %s\n", dirname);
-  dir = opendir(dirname);
-  filenames = malloc(1);
-  while((entry = readdir(dir)) != NULL)
-    {
-      char *name = entry->d_name;
-      int len = strlen(name);
-
-      char *name_lc = malloc(len + 1);
-      strncpy(name_lc, name, len + 1);
-      char *pc = name_lc;
-      printf("lc1 = %s\n", name_lc);
-      while (*pc != '\0')
-	{
-	  *pc = tolower(*pc);
-	  pc++;
-	}
-      printf("lc2 = %s\n", name_lc);
-
-      /* Match trailing ".jpg" */
-      char *occurrence, *last_occurrence, *cur_string;
-      occurrence = cur_string = name_lc;
-      last_occurrence = NULL;
-      while (printf("cur_string = %s\n", cur_string), (occurrence = (strstr(cur_string, ".jpg"))) != NULL)
-	{
-	  last_occurrence = occurrence;
-	  cur_string = occurrence + 1;
-	}
-      if ((last_occurrence != NULL) && ((last_occurrence - name_lc) == (len - 4)))
-	{
-	  /* This is a .jpg !!! */
-	  printf("%s is a .jpg !!!\n", name);
-	  nb_images++;
-	  filenames = realloc(filenames, sizeof(char*) * nb_images);
-	  filenames[nb_images-1] = malloc(len + 1);
-	  strncpy(filenames[nb_images-1], name, len + 1);
-	}
-      free(name_lc);
-    }
 
   if (nb_images > 0)
     background_loading = SDL_CreateThread(load_image, 0);
@@ -291,11 +305,11 @@ int main(int argc, char *argv[])
       SDL_BlitSurface(resized, NULL, next_screen, NULL);
       SDL_BlitSurface(screen, NULL, previous_screen, NULL);
 
-      /* Transition 1 - dissolve */
+      /* RANDOM_DISSOLVE */
       unsigned int total = 0;
       unsigned int pos = 0;
-      /* Transition 2 - alpha blend */
-      /* Transition 3 - increamental zoom (OSX screensaver-style) */
+      /* ALPHA_BLEND */
+      /* INCREMENTAL_ZOOM */
       SDL_Surface *zoombase = NULL;
       {
 	/* For better quality, zoom from a bigger image than the
@@ -312,7 +326,29 @@ int main(int argc, char *argv[])
 	   zooming 32bit surfaces. */
 	zoombase = SDL_DisplayFormat(resized);
       }
-
+      /* SCROLL_PUSH_DOWNWARDS */
+      SDL_Surface *scroll_tmp = NULL;
+      if (transition == SCROLL_PUSH_DOWNWARDS
+	  || transition == SCROLL_PUSH_UPWARDS)
+	{
+	  scroll_tmp = SDL_CreateRGBSurface(screen->flags,
+	    screen->w, screen->h*2,
+	    screen->format->BitsPerPixel,
+	    screen->format->Rmask, screen->format->Gmask,
+	    screen->format->Bmask, screen->format->Amask);
+	  if (transition == SCROLL_PUSH_DOWNWARDS)
+	    {
+	      SDL_BlitSurface(next_screen, NULL, scroll_tmp, NULL);
+	      SDL_Rect dst = {0, screen->h, -1, -1};
+	      SDL_BlitSurface(previous_screen, NULL, scroll_tmp, &dst);
+	    }
+	  else
+	    {
+	      SDL_BlitSurface(previous_screen, NULL, scroll_tmp, NULL);
+	      SDL_Rect dst = {0, screen->h, -1, -1};
+	      SDL_BlitSurface(next_screen, NULL, scroll_tmp, &dst);
+	    }
+	}
       last_update = start = SDL_GetTicks();
 
 
@@ -320,7 +356,7 @@ int main(int argc, char *argv[])
        * Transition
        */
       int skip = 0;
-      while (!quit && !skip) //  && ((SDL_GetTicks() - start) < 3000)
+      while (!quit && !skip && ((SDL_GetTicks() - start) < 3000))
 	// while (!quit && !skip)
 	{
 	  SDL_Event event;
@@ -341,8 +377,7 @@ int main(int argc, char *argv[])
 		}
 	    }
 
-	  int transition = 2;
-	  if (transition == 1)
+	  if (transition == RANDOM_DISSOLVE)
 	    {
 	      /* Transition 1 - random dissolve */
 	      /* int randx, randy; */
@@ -468,10 +503,10 @@ int main(int argc, char *argv[])
 		}
 	    }
 	  /* Transition 2 - Alpha blend */
-	  else if (transition == 2)
+	  else if (transition == ALPHA_BLEND)
 	    {
 	      /* Target: duration=1/4sec */
-	      Uint32 target = 250;
+	      Uint32 target = 500;
 	      Uint32 elapsed_time = SDL_GetTicks() - start;
 	      if (elapsed_time < target)
 		{
@@ -488,8 +523,53 @@ int main(int argc, char *argv[])
 		  skip = 1;
 		}
 	    }
-	  /* Progressive zoom */
-	  else if (transition == 3)
+	  else if (transition == SCROLL_LEFTWARDS)
+	    {
+	      
+	    }
+	  else if (transition == SCROLL_RIGHTWARDS)
+	    {
+	      
+	    }
+	  else if (transition == SCROLL_PUSH_DOWNWARDS)
+	    {
+	      Uint32 elapsed_time = SDL_GetTicks() - start;
+	      Uint32 target = 1000; /* 1sec = full scroll */
+	      int pos = IMAX(0, screen->h - elapsed_time * screen->h / (double)target);
+	      if (elapsed_time < target)
+		{
+		  SDL_Rect src = {0, pos, screen->w, screen->h};
+		  SDL_BlitSurface(scroll_tmp, &src, screen, NULL);
+		  SDL_Flip(screen);
+		  total++; // nb frames
+		  SDL_framerateDelay(&framerate_manager);
+		}
+	      else
+		{
+		  skip = 1;
+		}
+	    }
+	  else if (transition == SCROLL_PUSH_UPWARDS)
+	    {
+	      Uint32 elapsed_time = SDL_GetTicks() - start;
+	      Uint32 target = 1000; /* 1sec = full scroll */
+	      int pos = IMAX(0, elapsed_time * screen->h / (double)target);
+	      if (elapsed_time < target)
+		{
+		  SDL_Rect src = {0, pos, screen->w, screen->h};
+		  SDL_BlitSurface(scroll_tmp, &src, screen, NULL);
+		  SDL_Flip(screen);
+		  total++; // nb frames
+		  SDL_framerateDelay(&framerate_manager);
+		}
+	      else
+		{
+		  skip = 1;
+		}
+	    }
+	  /* Incremental zoom - in progress. It's similar to an OSX
+	     screensaver. */
+	  else if (transition == INCREMENTAL_ZOOM)
 	    {
 	      Uint32 elapsed_time = SDL_GetTicks() - start;
 	      double factor = 1 + elapsed_time * 0.01 / 1000; /* 1sec = 10% bigger */
@@ -513,6 +593,9 @@ int main(int argc, char *argv[])
 	printf("Framerate: %0.1f/s\n", total / (elapsed / 1000.0));
       }
       SDL_FreeSurface(zoombase);
+      if (transition == SCROLL_PUSH_DOWNWARDS
+	  || transition == SCROLL_PUSH_UPWARDS)
+	SDL_FreeSurface(scroll_tmp);
 
       SDL_BlitSurface(next_screen, NULL, screen, NULL);
       SDL_Flip(screen);
@@ -521,6 +604,7 @@ int main(int argc, char *argv[])
        * Wait
        */
       /* Preload next image if we're not at the last image already */
+      transition = myrand(SCROLL_PUSH_DOWNWARDS);
       if (i < (nb_images-1) && !quit)
 	background_loading = SDL_CreateThread(load_image, (void*)(i+1));
 

@@ -16,7 +16,6 @@ AC_PROG_CC
 # Gnulib - configuration in gnulib/m4/gnulib-cache.m4
 # gnulib-tool --source-base=gnulib/lib --m4-base=gnulib/m4 --import
 gl_EARLY
-gl_INIT
 
 AC_CHECK_TOOL(WINDRES, windres)
 AM_CONDITIONAL(HAVE_WINDRES, test "$WINDRES" != "")
@@ -49,10 +48,11 @@ AC_CHECK_LIB(SDL_image,IMG_Load,,AC_MSG_ERROR([You need to install SDL_image]))
 AC_CHECK_HEADERS(SDL.h SDL_rotozoom.h SDL_framerate.h SDL_image.h,
   [], AC_MSG_ERROR([Could not find necessary SDL libs headers]))
 
+gl_INIT
 
 # Dynamic and static builds
 AC_ARG_ENABLE([static],
-  AC_HELP_STRING([--enable-static], [embed SDL and dependencies in the executable [[default=no]]]),
+  AS_HELP_STRING([--enable-static],[embed SDL and dependencies in the executable [[default=no]]]),
   [static=1], [static=0])
 
 
@@ -89,7 +89,7 @@ if test x"$static" = x"1"; then
 fi
 
 
-AC_CONFIG_FILES([Makefile gnulib/lib/Makefile \
-  src/Makefile autopackage/Makefile autopackage/default.apspec])
+AC_CONFIG_FILES([Makefile gnulib/lib/Makefile src/Makefile \
+  src/woeres.rc autopackage/Makefile autopackage/default.apspec])
 
 AC_OUTPUT

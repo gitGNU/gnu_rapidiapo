@@ -15,11 +15,11 @@
 
 
 # Specification in the form of a command-line invocation:
-#   gnulib-tool --import --dir=. --lib=libgnu --source-base=gnulib/lib --m4-base=gnulib/m4 --doc-base=doc --aux-dir=autotools --no-libtool --macro-prefix=gl 
+#   gnulib-tool --import --dir=. --lib=libgnu --source-base=gnulib/lib --m4-base=gnulib/m4 --doc-base=doc --aux-dir=autotools --no-libtool --macro-prefix=gl strcasestr
 
 # Specification in the form of a few gnulib-tool.m4 macro invocations:
 gl_LOCAL_DIR([])
-gl_MODULES([])
+gl_MODULES([strcasestr])
 gl_AVOID([])
 gl_SOURCE_BASE([gnulib/lib])
 gl_M4_BASE([gnulib/m4])
