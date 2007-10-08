@@ -16,6 +16,7 @@ AC_PROG_CC
 # Gnulib - configuration in gnulib/m4/gnulib-cache.m4
 # gnulib-tool --source-base=gnulib/lib --m4-base=gnulib/m4 --import
 gl_EARLY
+gl_INIT
 
 AC_CHECK_TOOL(WINDRES, windres)
 AM_CONDITIONAL(HAVE_WINDRES, test "$WINDRES" != "")
@@ -44,11 +45,14 @@ AC_CHECK_LIB(SDL_gfx,zoomSurface,,AC_MSG_ERROR([You need to install SDL_gfx]))
 AC_CHECK_LIB(SDL_image,IMG_Load,,AC_MSG_ERROR([You need to install SDL_image]))
 
 # Somewhat optional. Defines matching contants in config.h
-# (e.g. HAVE_SDL_FRAMERATE_H).
+# (e.g. HAVE_SDL_FRAMERATE_H). Using a temporary CPPFLAGS to include
+# Gnulib's src and build directories ($top_srcdir and $top_builddir
+# not present here for some reason).
+old_CPPFLAGS="$CPPFLAGS"
+CPPFLAGS="$CPPFLAGS -I${srcdir}/gnulib/lib -I./gnulib/lib"
 AC_CHECK_HEADERS(SDL.h SDL_rotozoom.h SDL_framerate.h SDL_image.h,
   [], AC_MSG_ERROR([Could not find necessary SDL libs headers]))
-
-gl_INIT
+CPPFLAGS="$old_CPPFLAGS"
 
 # Dynamic and static builds
 AC_ARG_ENABLE([static],
